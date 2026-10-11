@@ -458,6 +458,16 @@ def analyze_pair(
         },
         quality,
     )
+    if any(
+        detection.confidence < 0.60
+        for detection in (*baseline_detections, *final_detections)
+    ):
+        assessment = DisorderAssessment(
+            "needs_review",
+            max(assessment.score, 0.90),
+            tuple(dict.fromkeys((*assessment.reasons, "detection_confidence"))),
+            assessment.rule_version,
+        )
     changed_mask = _robust_difference(base, aligned_final)
     residual_mask = changed_mask & ~explained
     evidence = {

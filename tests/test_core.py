@@ -94,3 +94,16 @@ def test_anchor_alignment_reports_confidence_and_restores_translation():
     assert base.shape == aligned.shape
     assert confidence > 0.9
     assert homography is not None
+
+
+def test_low_detector_confidence_abstains():
+    image = np.full((40, 40, 3), 180, dtype=np.uint8)
+    result = analyze_pair(
+        image,
+        image.copy(),
+        baseline_detections=[Detection("scope", (5, 5, 12, 12), 0.42)],
+        final_detections=[Detection("scope", (5, 5, 12, 12), 0.45)],
+    )
+
+    assert result.level == "needs_review"
+    assert "detection_confidence" in result.evidence["reasons"]
