@@ -318,6 +318,32 @@ def _connected_components(mask: Array) -> list[Array]:
     return components
 
 
+def _residual_region_evidence(mask: Array) -> list[dict]:
+    """Return stable geometry records for each connected residual region."""
+
+    mask = np.asarray(mask, dtype=bool)
+    total = max(int(mask.size), 1)
+    regions: list[dict] = []
+    for component in _connected_components(mask):
+        ys = component[:, 0]
+        xs = component[:, 1]
+        x0, x1 = int(np.min(xs)), int(np.max(xs))
+        y0, y1 = int(np.min(ys)), int(np.max(ys))
+        area = int(len(component))
+        regions.append(
+            {
+                "bbox": [x0, y0, x1 - x0 + 1, y1 - y0 + 1],
+                "area_px": area,
+                "area_ratio": round(area / total, 6),
+                "centroid": [round(float(np.mean(xs)), 4), round(float(np.mean(ys)), 4)],
+            }
+        )
+    regions.sort(key=lambda item: (-item["area_px"], item["bbox"][1], item["bbox"][0]))
+    for index, region in enumerate(regions, start=1):
+        region["id"] = index
+    return regions
+
+
 def _robust_difference(baseline: Array, final: Array) -> Array:
     raw = np.abs(np.asarray(final, dtype=np.float32) - np.asarray(baseline, dtype=np.float32))
     diff = np.mean(raw, axis=-1) if raw.ndim == 3 else raw
@@ -474,6 +500,7 @@ def analyze_pair(
         "method": "semantic_change_accounting",
         "method_version": "sca-0.1",
         "features": asdict(residual),
+        "residual_regions": _residual_region_evidence(residual_mask),
         "quality": asdict(quality),
         "matches": [_serialize_match(match) for match in matches],
         "reasons": list(assessment.reasons),

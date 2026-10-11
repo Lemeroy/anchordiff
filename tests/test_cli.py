@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 from PIL import Image
 
@@ -22,3 +23,5 @@ def test_cli_analyze_writes_machine_readable_evidence(tmp_path: Path):
     assert exit_code == 0
     assert (output / "result.json").exists()
     assert (output / "residual_mask.png").exists()
+    report = json.loads((output / "result.json").read_text(encoding="utf-8"))
+    assert "residual_regions" in report["evidence"]

@@ -82,6 +82,33 @@ def test_end_to_end_returns_explainable_evidence():
     assert "residual_area_ratio" in result.evidence["features"]
 
 
+def test_residual_regions_include_stable_geometry_evidence():
+    baseline = np.zeros((100, 100, 3), dtype=np.uint8)
+    final = baseline.copy()
+    final[10:20, 15:35] = 230  # area 200, centroid (24.5, 14.5)
+    final[60:65, 70:76] = 230  # area 30, centroid (72.5, 62.0)
+
+    result = analyze_pair(baseline, final)
+
+    regions = result.evidence["residual_regions"]
+    assert regions == [
+        {
+            "id": 1,
+            "bbox": [15, 10, 20, 10],
+            "area_px": 200,
+            "area_ratio": 0.02,
+            "centroid": [24.5, 14.5],
+        },
+        {
+            "id": 2,
+            "bbox": [70, 60, 6, 5],
+            "area_px": 30,
+            "area_ratio": 0.003,
+            "centroid": [72.5, 62.0],
+        },
+    ]
+
+
 def test_anchor_alignment_reports_confidence_and_restores_translation():
     baseline = np.zeros((32, 32, 3), dtype=np.uint8)
     final = np.zeros_like(baseline)

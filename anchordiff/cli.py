@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from .core import Detection, analyze_pair, analyze_sequence
 from .sanitize import (
@@ -68,6 +68,7 @@ def _write_outputs(result, selected: np.ndarray, output: Path) -> None:
         "score": result.score,
         "quality": asdict(result.quality),
         "instruments": result.evidence["matches"],
+        "residual_regions": result.evidence["residual_regions"],
         "evidence": result.evidence,
     }
     (output / "result.json").write_text(json.dumps(_jsonable(payload), indent=2), encoding="utf-8")
@@ -77,7 +78,13 @@ def _write_outputs(result, selected: np.ndarray, output: Path) -> None:
     overlay[result.residual_mask] = (
         0.35 * overlay[result.residual_mask] + np.array([255, 40, 40]) * 0.65
     ).astype(np.uint8)
-    Image.fromarray(overlay, mode="RGB").save(output / "overlay.png")
+    overlay_image = Image.fromarray(overlay, mode="RGB")
+    draw = ImageDraw.Draw(overlay_image)
+    for region in result.evidence["residual_regions"]:
+        x, y, width, height = region["bbox"]
+        draw.rectangle((x, y, x + width - 1, y + height - 1), outline=(255, 255, 0), width=1)
+        draw.text((x, y), str(region["id"]), fill=(255, 255, 0))
+    overlay_image.save(output / "overlay.png")
 
 
 def build_parser() -> argparse.ArgumentParser:

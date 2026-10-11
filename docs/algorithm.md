@@ -20,7 +20,9 @@ clutter.
    union of boxes for explained object transitions and remove it from the
    difference mask.
 5. Measure residual area, connected components, largest component and spatial
-   entropy. These are evidence, not a hidden embedding.
+   entropy. Also emit one stable record per residual component with its ID,
+   half-open bounding box, pixel area, area ratio and centroid. These are
+   evidence, not a hidden embedding.
 6. Apply monotonic, versioned rules. If geometry or quality is unreliable,
    abstain with `needs_review` and preserve the reasons.
 

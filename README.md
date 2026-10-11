@@ -116,6 +116,10 @@ evidence contract.
   "instruments": [
     {"class": "device_a", "status": "moved", "displacement": 0.18}
   ],
+  "residual_regions": [
+    {"id": 1, "bbox": [120, 80, 24, 18], "area_px": 286,
+     "area_ratio": 0.0044, "centroid": [131.5, 88.2]}
+  ],
   "evidence": {
     "method": "semantic_change_accounting",
     "features": {
@@ -127,6 +131,11 @@ evidence contract.
   }
 }
 ```
+
+Each `residual_regions` record identifies one connected unexplained region.
+The bounding box uses `[x, y, width, height]` coordinates, and the list is
+sorted by pixel area so a report or UI can point directly to the largest change.
+The generated overlay draws the same region IDs for visual inspection.
 
 ## What makes it different
 
