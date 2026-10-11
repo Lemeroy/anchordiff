@@ -10,8 +10,8 @@ Before opening a pull request:
 2. Run `pytest -q` from this directory.
 3. Keep optional detector integrations out of the dependency-light core.
 4. Include a short note about runtime, memory and any new data license.
-5. Do not add real student, employee or customer images. Use synthetic or
-   explicitly licensed privacy-safe fixtures.
+5. Do not add images containing personal or otherwise identifying data. Use
+   synthetic or explicitly licensed privacy-safe fixtures.
 
 New detector adapters should return `Detection` objects and must not change the
 meaning of `needs_review`.

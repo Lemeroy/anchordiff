@@ -25,7 +25,7 @@ def _rectangle(image: np.ndarray, x: int, y: int, w: int, h: int, color: tuple[i
 def make_fixture(
     *, seed: int = 0, size: tuple[int, int] = (256, 256), clutter: bool = True
 ) -> SyntheticFixture:
-    """Create a small before/after workbench pair without real user images."""
+    """Create a small before/after workspace pair without real user images."""
 
     rng = np.random.default_rng(seed)
     height, width = size
@@ -34,14 +34,14 @@ def make_fixture(
     noise = rng.normal(0, 2.0, size=(height, width, 1))
     before = np.clip(before.astype(np.float32) + noise, 0, 255).astype(np.uint8)
     objects = [
-        {"label": "oscilloscope", "bbox": (18, 20, 62, 42), "color": (45, 70, 105)},
-        {"label": "soldering_station", "bbox": (142, 22, 55, 35), "color": (90, 48, 38)},
-        {"label": "power_supply", "bbox": (32, 146, 55, 35), "color": (45, 92, 65)},
+        {"label": "device_a", "bbox": (18, 20, 62, 42), "color": (45, 70, 105)},
+        {"label": "device_b", "bbox": (142, 22, 55, 35), "color": (90, 48, 38)},
+        {"label": "device_c", "bbox": (32, 146, 55, 35), "color": (45, 92, 65)},
     ]
     for item in objects:
         _rectangle(before, *item["bbox"], item["color"])
     after = before.copy()
-    # Simulate a returned instrument with a small translation.
+    # Simulate a tracked object with a small translation.
     x, y, w, h = objects[0]["bbox"]
     after[y : y + h, x : x + w] = 218
     _rectangle(after, x + 5, y + 3, w, h, objects[0]["color"])
@@ -53,7 +53,7 @@ def make_fixture(
     metadata = {
         "seed": seed,
         "ground_truth": {
-            "instrument_states": {"oscilloscope": "moved", "soldering_station": "returned", "power_supply": "returned"},
+            "object_states": {"device_a": "moved", "device_b": "returned", "device_c": "returned"},
             "residual_regions": residual_regions,
         },
     }

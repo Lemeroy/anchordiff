@@ -1,9 +1,9 @@
 # Security policy
 
 AnchorDiff is intended for local or controlled deployments. Do not commit
-images containing faces, student identifiers, employee identifiers or other
-personal data. The project does not provide authentication, authorization or
-secure image deletion; applications embedding it must add those controls.
+images containing faces, identifiers or other personal data. The project does
+not provide authentication, authorization or secure image deletion; applications
+embedding it must add those controls.
 
 The CLI converts inputs to plain RGB arrays and does not copy EXIF metadata to
 outputs. Detector JSON is bounded and rejects non-finite coordinates, invalid

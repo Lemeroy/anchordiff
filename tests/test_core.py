@@ -16,10 +16,10 @@ from anchordiff.core import (
 def test_hungarian_matching_prefers_same_class_and_nearby_object():
     baseline = [
         Detection("scope", (20, 20, 40, 40), 0.95),
-        Detection("soldering_station", (120, 20, 40, 40), 0.94),
+        Detection("device_b", (120, 20, 40, 40), 0.94),
     ]
     final = [
-        Detection("soldering_station", (118, 22, 40, 40), 0.92),
+        Detection("device_b", (118, 22, 40, 40), 0.92),
         Detection("scope", (24, 21, 40, 40), 0.93),
     ]
 
@@ -27,7 +27,7 @@ def test_hungarian_matching_prefers_same_class_and_nearby_object():
 
     assert [(m.baseline.label, m.final.label) for m in matches] == [
         ("scope", "scope"),
-        ("soldering_station", "soldering_station"),
+        ("device_b", "device_b"),
     ]
     assert all(m.status == "returned" for m in matches)
 

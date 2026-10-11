@@ -36,7 +36,7 @@ must preserve unknown evidence rather than silently folding it into a score.
 ## Why this is useful
 
 An ordinary before/after difference fires on camera drift, exposure changes and
-an instrument being moved. SCA makes the instrument transition explicit, then
+a tracked object being moved. SCA makes the object transition explicit, then
 scores what remains. That makes the result inspectable and lets a deployment
 choose a conservative risk/coverage trade-off.
 

@@ -9,15 +9,15 @@
 
 - computer-vision engineers who need a transparent change-analysis baseline;
 - edge-AI developers targeting mini PCs, N100-class CPUs or RK3588;
-- makerspaces, electronics labs and equipment return workflows;
+- fixed-camera workspaces, inventory checks and inspection workflows;
 - researchers who need a deterministic paired-image benchmark instead of a
   black-box cleanliness score.
 
 ## The first demo should show five things
 
 1. a baseline and final image side by side;
-2. a moved instrument with an arrow and displacement;
-3. residual regions after the instrument region is explained;
+2. a moved tracked object with an arrow and displacement;
+3. residual regions after the tracked-object region is explained;
 4. the JSON evidence and quality signals;
 5. a deliberately blurred or misaligned pair that becomes `needs_review`.
 
@@ -29,7 +29,7 @@ abstention behavior that differentiates it from a plain difference heatmap.
 - Publish the CPU baseline before publishing detector weights.
 - Keep all demo images synthetic or explicitly licensed.
 - Report the synthetic smoke benchmark as a regression check, never as real
-  classroom accuracy.
+  workspace accuracy.
 - Add real-world metrics only after a paired dataset and annotation protocol
   are public.
 - Pin model, rules and schema versions in every output file.

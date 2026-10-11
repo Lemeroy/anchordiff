@@ -8,7 +8,7 @@ python -m examples.run_benchmark
 ```
 
 It creates `benchmark-report.json` from ten deterministic synthetic pairs. The
-fixture generator applies a small instrument translation and residual objects,
+fixture generator applies a small tracked-object translation and residual regions,
 so regression tests can verify that the pipeline remains deterministic.
 
 For a real release, add a licensed paired dataset with the following labels:

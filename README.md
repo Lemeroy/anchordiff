@@ -11,13 +11,12 @@ sequence) and returns:
 - machine-readable evidence explaining the geometry, quality and rule triggers;
 - `needs_review` when the image does not support a reliable claim.
 
-The first example is an electronics bench, but the abstraction is broader:
-maker spaces, 5S workstations, equipment return bays, robot cells and any
-workspace viewed by a mostly fixed camera.
+The abstraction is deliberately general: any workspace viewed by a mostly fixed
+camera where a set of tracked objects has an expected reference state.
 
-> AnchorDiff is an auditable engineering baseline, not a black-box cleanliness
+> AnchorDiff is an auditable engineering baseline, not a black-box semantic
 > classifier. It reports visible change and uncertainty; it does not infer
-> hygiene, safety or student performance.
+> intent, compliance or human performance.
 
 ## Why this project exists
 
@@ -29,10 +28,10 @@ AnchorDiff contributes a small but useful abstraction: **Semantic Change
 Accounting (SCA)**. Every changed region is assigned to one accounting bucket:
 
 ```text
-instrument state change → explained residual → capture/geometry issue → unknown
+tracked-object state change → explained residual → capture/geometry issue → unknown
 ```
 
-An explained instrument movement is removed before clutter is scored, so one
+An explained object movement is removed before residual change is scored, so one
 event is not counted twice. The confidence gate can abstain instead of turning
 bad alignment or an occluded capture into a confident label.
 
@@ -65,8 +64,8 @@ For detector-backed analysis, pass a portable JSON file:
 
 ```json
 {
-  "before": [{"label": "oscilloscope", "bbox": [20, 20, 80, 55], "confidence": 0.94}],
-  "after":  [{"label": "oscilloscope", "bbox": [25, 22, 80, 55], "confidence": 0.93}]
+  "before": [{"label": "device_a", "bbox": [20, 20, 80, 55], "confidence": 0.94}],
+  "after":  [{"label": "device_a", "bbox": [25, 22, 80, 55], "confidence": 0.93}]
 }
 ```
 
@@ -115,7 +114,7 @@ evidence contract.
   "level": "minor",
   "score": 0.23,
   "instruments": [
-    {"class": "oscilloscope", "status": "moved", "displacement": 0.18}
+    {"class": "device_a", "status": "moved", "displacement": 0.18}
   ],
   "evidence": {
     "method": "semantic_change_accounting",
@@ -161,12 +160,12 @@ The intended release sequence is:
 
 - A fixed or mostly fixed camera is part of the problem definition.
 - The baseline image defines the expected workspace state for that comparison.
-- Small cables and personal items are represented as residual visual change,
-  not individually identified objects in the CPU baseline.
+- Small untracked items are represented as residual visual change, not
+  individually identified objects in the CPU baseline.
 - Lighting, occlusion, missing anchors and strong camera motion should produce
   `needs_review` rather than an overconfident label.
-- Outputs are for inspection and feedback. They do not replace safety checks or
-  a teacher's judgment.
+- Outputs are for inspection and feedback. They do not replace any operational
+  or safety checks required by the deployment context.
 
 ## License
 
