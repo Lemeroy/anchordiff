@@ -1,0 +1,12 @@
+{
+  "before": [
+    {"label": "oscilloscope", "bbox": [18, 20, 62, 42], "confidence": 0.96},
+    {"label": "soldering_station", "bbox": [142, 22, 55, 35], "confidence": 0.95},
+    {"label": "power_supply", "bbox": [32, 146, 55, 35], "confidence": 0.95}
+  ],
+  "after": [
+    {"label": "oscilloscope", "bbox": [23, 23, 62, 42], "confidence": 0.95},
+    {"label": "soldering_station", "bbox": [142, 22, 55, 35], "confidence": 0.95},
+    {"label": "power_supply", "bbox": [32, 146, 55, 35], "confidence": 0.95}
+  ]
+}

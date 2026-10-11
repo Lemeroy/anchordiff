@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "anchordiff"
+version = "0.1.0"
+description = "CPU-first, explainable before/after state analysis for fixed-camera workspaces"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [{name = "AnchorDiff contributors"}]
+dependencies = ["numpy>=1.24", "Pillow>=9.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+opencv = ["opencv-python-headless>=4.8"]
+ultralytics = ["ultralytics>=8.2"]
+
+[project.scripts]
+anchordiff = "anchordiff.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]

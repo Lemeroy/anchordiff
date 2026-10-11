@@ -1,0 +1,11 @@
+{
+  "seed": 11,
+  "ground_truth": {
+    "instrument_states": {
+      "oscilloscope": "moved",
+      "soldering_station": "returned",
+      "power_supply": "returned"
+    },
+    "residual_regions": 2
+  }
+}
