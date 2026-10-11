@@ -25,3 +25,5 @@ def test_cli_analyze_writes_machine_readable_evidence(tmp_path: Path):
     assert (output / "residual_mask.png").exists()
     report = json.loads((output / "result.json").read_text(encoding="utf-8"))
     assert "residual_regions" in report["evidence"]
+    assert "objects" in report
+    assert "instruments" not in report

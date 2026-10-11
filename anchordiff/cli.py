@@ -67,7 +67,7 @@ def _write_outputs(result, selected: np.ndarray, output: Path) -> None:
         "level": result.level,
         "score": result.score,
         "quality": asdict(result.quality),
-        "instruments": result.evidence["matches"],
+        "objects": result.evidence["matches"],
         "residual_regions": result.evidence["residual_regions"],
         "evidence": result.evidence,
     }
