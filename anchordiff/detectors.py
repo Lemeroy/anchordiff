@@ -13,6 +13,7 @@ import json
 import numpy as np
 
 from .core import Detection
+from .sanitize import load_json_payload, validate_detection_payload
 
 
 class Detector(Protocol):
@@ -24,7 +25,8 @@ class JsonDetector:
 
     def __init__(self, path: str | Path):
         self.path = Path(path)
-        self.payload = json.loads(self.path.read_text(encoding="utf-8"))
+        self.payload = load_json_payload(self.path)
+        validate_detection_payload(self.payload)
 
     def detect(self, image: np.ndarray | None, frame_name: str = "before") -> list[Detection]:
         items = self.payload.get(frame_name, self.payload.get("before", []))
@@ -41,12 +43,17 @@ class JsonDetector:
 class UltralyticsDetector:
     """Optional YOLO adapter; importing it is deferred until construction."""
 
-    def __init__(self, weights: str, confidence: float = 0.35):
+    def __init__(self, weights: str, confidence: float = 0.35, *, allow_download: bool = False):
+        weight_path = Path(weights)
+        if not allow_download and not weight_path.is_file():
+            raise FileNotFoundError(
+                "local model weights are required by default; pass allow_download=True only in a trusted environment"
+            )
         try:
             from ultralytics import YOLO
         except ImportError as exc:  # pragma: no cover - depends on optional package
             raise RuntimeError("install anchordiff[ultralytics] to use this adapter") from exc
-        self.model = YOLO(weights)
+        self.model = YOLO(str(weight_path) if weight_path.is_file() else weights)
         self.confidence = confidence
 
     def detect(self, image: np.ndarray, frame_name: str = "") -> list[Detection]:

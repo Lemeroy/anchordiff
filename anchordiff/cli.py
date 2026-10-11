@@ -12,17 +12,23 @@ import numpy as np
 from PIL import Image
 
 from .core import Detection, analyze_pair, analyze_sequence
+from .sanitize import (
+    load_json_payload,
+    load_sanitized_rgb,
+    validate_anchor_payload,
+    validate_detection_payload,
+)
 
 
 def _load_image(path: str) -> np.ndarray:
-    with Image.open(path) as image:
-        return np.asarray(image.convert("RGB"))
+    return load_sanitized_rgb(path)
 
 
 def _load_detections(path: str | None) -> tuple[list[Detection], list[Detection]]:
     if not path:
         return [], []
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    payload = load_json_payload(path)
+    validate_detection_payload(payload)
 
     def parse(items: list[dict[str, Any]]) -> list[Detection]:
         return [
@@ -40,7 +46,8 @@ def _load_detections(path: str | None) -> tuple[list[Detection], list[Detection]
 def _load_anchors(path: str | None) -> tuple[list[list[float]] | None, list[list[float]] | None]:
     if not path:
         return None, None
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    payload = load_json_payload(path)
+    validate_anchor_payload(payload)
     return payload.get("before"), payload.get("after")
 
 
