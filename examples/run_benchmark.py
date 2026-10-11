@@ -23,7 +23,13 @@ def main() -> None:
                 "components": result.residual.connected_components,
             }
         )
-    report = {"name": "anchordiff-synthetic-smoke", "version": "0.1.0", "rows": rows}
+    report = {
+        "name": "anchordiff-synthetic-smoke",
+        "version": "0.5.0",
+        "privacy": "synthetic-only",
+        "backend": "cpu",
+        "rows": rows,
+    }
     output = Path("benchmark-report.json")
     output.write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(json.dumps({"samples": len(rows), "output": str(output)}, ensure_ascii=False))

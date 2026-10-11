@@ -7,7 +7,7 @@ sequence) and returns:
 
 - object state transitions such as `returned`, `moved`, `missing`, and `new`;
 - a residual change mask after explained object changes are removed;
-- a calibrated disorder level and score;
+- a rule-based disorder level and score;
 - machine-readable evidence explaining the geometry, quality and rule triggers;
 - `needs_review` when the image does not support a reliable claim.
 
@@ -87,6 +87,12 @@ python -m anchordiff.cli analyze --before before.png --after after.png \
   --anchors anchors.json --output out
 ```
 
+For automatic marker localization, install the optional OpenCV extra and use
+`OpenCVArucoDetector` or `OpenCVAprilTagDetector` from
+`anchordiff.geometry`. Both adapters return marker IDs and four corners; pass
+the paired points to the same CPU homography estimator. Without OpenCV, the
+NumPy/Pillow baseline and hand-authored anchor JSON remain fully usable.
+
 ## Core pipeline
 
 ```text
@@ -96,6 +102,7 @@ two images / short sequence
   → detector adapter (optional YOLO/ONNX/RKNN or JSON boxes)
   → class-aware Hungarian object matching
   → object state transitions
+  → optional object-mask explanation
   → robust pixel residual and connected components
   → subtract explained object regions (SCA)
   → monotonic rules + abstention
@@ -164,6 +171,12 @@ The intended release sequence is:
 3. `v0.3`: detector adapters, object masks and benchmark fixtures;
 4. `v0.4`: calibration, risk-coverage metrics and short-sequence selection;
 5. `v0.5`: ONNX/RKNN deployment examples and a privacy-safe benchmark.
+
+Calibration and selective-risk utilities are available in
+[`anchordiff.metrics`](anchordiff/metrics.py); see
+[`docs/metrics.md`](docs/metrics.md) for the evaluation contract.
+For ONNX Runtime and RKNN Lite usage, see
+[`docs/deployment.md`](docs/deployment.md).
 
 ## Scope and limits
 

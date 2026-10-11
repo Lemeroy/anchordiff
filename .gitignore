@@ -6,4 +6,5 @@ __pycache__/
 dist/
 build/
 out/
+benchmark-report.json
 .DS_Store

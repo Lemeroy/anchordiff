@@ -19,11 +19,26 @@ Array = np.ndarray
 
 @dataclass(frozen=True)
 class Detection:
-    """An object observation in ``(x, y, width, height)`` pixel coordinates."""
+    """An object observation in ``(x, y, width, height)`` pixel coordinates.
+
+    ``mask`` is optional and, when present, is a full-frame boolean mask with the
+    same height and width as the image passed to the detector.  Keeping the mask
+    on the observation lets semantic change accounting explain the visible part
+    of an object without charging the whole bounding box as changed.
+    """
 
     label: str
     bbox: tuple[float, float, float, float]
     confidence: float = 1.0
+    mask: Array | None = None
+
+    def __post_init__(self) -> None:
+        if self.mask is None:
+            return
+        mask = np.asarray(self.mask, dtype=bool)
+        if mask.ndim != 2:
+            raise ValueError("detection mask must be a two-dimensional array")
+        object.__setattr__(self, "mask", mask.copy())
 
     @property
     def center(self) -> tuple[float, float]:
@@ -42,6 +57,18 @@ class ImageQuality:
     brightness: float
     clipped_ratio: float
     alignment_confidence: float = 1.0
+
+
+@dataclass(frozen=True)
+class HomographyQuality:
+    """Scale-independent evidence for a point-based planar transform."""
+
+    reprojection_rmse: float
+    normalized_rmse: float
+    max_error: float
+    condition_number: float
+    confidence: float
+    degenerate: bool
 
 
 @dataclass(frozen=True)
@@ -109,26 +136,76 @@ def image_quality(image: Array, alignment_confidence: float = 1.0) -> ImageQuali
     return ImageQuality(blur, brightness, clipped, alignment_confidence)
 
 
-def _homography(src: Array, dst: Array) -> tuple[Array, float]:
-    """Estimate a planar homography with a dependency-free normalized DLT."""
-
+def _validate_homography_points(src: Array, dst: Array) -> tuple[Array, Array]:
     src = np.asarray(src, dtype=np.float64)
     dst = np.asarray(dst, dtype=np.float64)
     if src.shape != dst.shape or src.ndim != 2 or src.shape[1] != 2 or len(src) < 4:
         raise ValueError("src and dst need at least four matching 2D points")
-    def normalize(points: Array) -> tuple[Array, Array]:
-        center = np.mean(points, axis=0)
-        distances = np.linalg.norm(points - center, axis=1)
-        scale = math.sqrt(2.0) / max(float(np.mean(distances)), 1e-12)
-        T = np.array(
-            [[scale, 0.0, -scale * center[0]], [0.0, scale, -scale * center[1]], [0.0, 0.0, 1.0]],
-            dtype=np.float64,
-        )
-        normalized = _project_points(points, T)
-        return normalized, T
+    if not np.isfinite(src).all() or not np.isfinite(dst).all():
+        raise ValueError("homography points must be finite")
+    # A planar transform cannot be estimated from collinear correspondences.
+    if np.linalg.matrix_rank(src - np.mean(src, axis=0)) < 2:
+        raise ValueError("degenerate anchor geometry: source points are collinear")
+    if np.linalg.matrix_rank(dst - np.mean(dst, axis=0)) < 2:
+        raise ValueError("degenerate anchor geometry: target points are collinear")
+    return src, dst
 
-    src_normalized, src_transform = normalize(src)
-    dst_normalized, dst_transform = normalize(dst)
+
+def _normalize_points(points: Array) -> tuple[Array, Array]:
+    center = np.mean(points, axis=0)
+    distances = np.linalg.norm(points - center, axis=1)
+    scale = math.sqrt(2.0) / max(float(np.mean(distances)), 1e-12)
+    T = np.array(
+        [[scale, 0.0, -scale * center[0]], [0.0, scale, -scale * center[1]], [0.0, 0.0, 1.0]],
+        dtype=np.float64,
+    )
+    normalized = _project_points(points, T)
+    return normalized, T
+
+
+def homography_quality(src: Array, dst: Array, H: Array) -> HomographyQuality:
+    """Measure reprojection quality in pixels and normalized workspace units.
+
+    Normalizing by the diagonal of the target point extent makes the same
+    thresholds useful for small and large images. ``degenerate`` is a hard
+    quality flag; callers should abstain when it is true.
+    """
+
+    src, dst = _validate_homography_points(src, dst)
+    matrix = np.asarray(H, dtype=np.float64)
+    if matrix.shape != (3, 3) or not np.isfinite(matrix).all():
+        raise ValueError("H must be a finite 3x3 matrix")
+    try:
+        projected = _project_points(src, matrix)
+    except (FloatingPointError, ValueError, np.linalg.LinAlgError):
+        projected = np.full_like(dst, np.nan)
+    errors = np.linalg.norm(projected - dst, axis=1)
+    extent = np.ptp(dst, axis=0)
+    diagonal = max(float(np.linalg.norm(extent)), 1e-12)
+    rmse = float(np.sqrt(np.mean(errors * errors))) if np.isfinite(errors).all() else float("inf")
+    max_error = float(np.max(errors)) if np.isfinite(errors).all() else float("inf")
+    normalized = rmse / diagonal
+    try:
+        condition = float(np.linalg.cond(matrix))
+    except np.linalg.LinAlgError:
+        condition = float("inf")
+    degenerate = (
+        not np.isfinite(normalized)
+        or not np.isfinite(condition)
+        or condition > 1e12
+        or max_error > diagonal * 2.0
+    )
+    confidence = 0.0 if degenerate else float(math.exp(-8.0 * normalized))
+    return HomographyQuality(rmse, normalized, max_error, condition, confidence, degenerate)
+
+
+def estimate_homography(src: Array, dst: Array) -> tuple[Array, HomographyQuality]:
+    """Estimate a planar homography with a dependency-free normalized DLT."""
+
+    src, dst = _validate_homography_points(src, dst)
+
+    src_normalized, src_transform = _normalize_points(src)
+    dst_normalized, dst_transform = _normalize_points(dst)
     rows = []
     for (x, y), (u, v) in zip(src_normalized, dst_normalized):
         rows.append([-x, -y, -1.0, 0, 0, 0, u * x, u * y, u])
@@ -142,10 +219,17 @@ def _homography(src: Array, dst: Array) -> tuple[Array, float]:
     if abs(H[2, 2]) < 1e-12:
         raise ValueError("degenerate anchor geometry")
     H /= H[2, 2]
-    projected = _project_points(src, H)
-    error = float(np.mean(np.linalg.norm(projected - dst, axis=1)))
-    confidence = float(math.exp(-error / 4.0))
-    return H, confidence
+    quality = homography_quality(src, dst, H)
+    if quality.degenerate:
+        raise ValueError("degenerate anchor geometry")
+    return H, quality
+
+
+def _homography(src: Array, dst: Array) -> tuple[Array, float]:
+    """Backward-compatible homography helper returning scalar confidence."""
+
+    H, quality = estimate_homography(src, dst)
+    return H, quality.confidence
 
 
 def _project_points(points: Array, H: Array) -> Array:
@@ -435,6 +519,14 @@ def classify_disorder(features: ResidualFeatures | dict, quality: ImageQuality, 
 
 
 def _serialize_match(match: Match) -> dict:
+    masks = [
+        detection.mask
+        for detection in (match.baseline, match.final)
+        if detection is not None and detection.mask is not None
+    ]
+    mask_area = 0
+    if masks:
+        mask_area = int(np.count_nonzero(np.logical_or.reduce(masks)))
     return {
         "class": match.baseline.label,
         "status": match.status,
@@ -443,6 +535,7 @@ def _serialize_match(match: Match) -> dict:
         "baseline_bbox": list(match.baseline.bbox),
         "final_bbox": list(match.final.bbox) if match.final else None,
         "confidence": round(min(match.baseline.confidence, match.final.confidence if match.final else match.baseline.confidence), 4),
+        "mask_area_px": mask_area,
     }
 
 
@@ -457,20 +550,37 @@ def analyze_pair(
 ) -> AnalysisResult:
     """Run AnchorDiff's core pipeline and return evidence plus a residual mask."""
 
-    base, aligned_final, alignment_confidence, _ = align_pair(
+    base, aligned_final, alignment_confidence, homography = align_pair(
         baseline, final, baseline_anchors, final_anchors
     )
+    alignment_quality = None
+    if homography is not None and baseline_anchors is not None and final_anchors is not None:
+        alignment_quality = homography_quality(
+            np.asarray(final_anchors, dtype=np.float64),
+            np.asarray(baseline_anchors, dtype=np.float64),
+            homography,
+        )
     quality = image_quality(aligned_final, alignment_confidence)
     matches = match_detections(baseline_detections, final_detections)
     explained = np.zeros(base.shape[:2], dtype=bool)
     for match in matches:
         if match.status in {"moved", "missing", "new"}:
-            detection = match.final or match.baseline
-            x, y, w, h = [int(round(v)) for v in detection.bbox]
-            x0, y0 = max(0, x), max(0, y)
-            x1, y1 = min(base.shape[1], x + max(1, w)), min(base.shape[0], y + max(1, h))
-            if x1 > x0 and y1 > y0:
-                explained[y0:y1, x0:x1] = True
+            observations = [d for d in (match.baseline, match.final) if d is not None]
+            masks = [d.mask for d in observations if d.mask is not None]
+            if masks:
+                for mask in masks:
+                    if mask.shape != base.shape[:2]:
+                        raise ValueError("detection mask must match the analyzed image dimensions")
+                    explained |= mask
+                continue
+            # Bounding boxes remain a safe fallback for detectors that only emit
+            # boxes. A moved object explains both its old and new box.
+            for detection in observations:
+                x, y, w, h = [int(round(v)) for v in detection.bbox]
+                x0, y0 = max(0, x), max(0, y)
+                x1, y1 = min(base.shape[1], x + max(1, w)), min(base.shape[0], y + max(1, h))
+                if x1 > x0 and y1 > y0:
+                    explained[y0:y1, x0:x1] = True
     residual = residual_features(base, aligned_final, explained)
     moved = sum(m.status == "moved" for m in matches)
     missing = sum(m.status == "missing" for m in matches)
@@ -498,10 +608,11 @@ def analyze_pair(
     residual_mask = changed_mask & ~explained
     evidence = {
         "method": "semantic_change_accounting",
-        "method_version": "sca-0.1",
+        "method_version": "sca-0.2",
         "features": asdict(residual),
         "residual_regions": _residual_region_evidence(residual_mask),
         "quality": asdict(quality),
+        "geometry": asdict(alignment_quality) if alignment_quality is not None else None,
         "matches": [_serialize_match(match) for match in matches],
         "reasons": list(assessment.reasons),
     }
@@ -517,12 +628,27 @@ def analyze_sequence(
 
     if not finals:
         raise ValueError("finals must contain at least one image")
-    candidates = [
-        (image_quality(frame).blur_score - image_quality(frame).clipped_ratio * 100.0, index, frame)
-        for index, frame in enumerate(finals)
-    ]
-    _, selected_index, selected = max(candidates, key=lambda item: item[0])
+    candidates = []
+    for index, frame in enumerate(finals):
+        quality = image_quality(frame)
+        selection_score = quality.blur_score - quality.clipped_ratio * 100.0
+        candidates.append((selection_score, index, frame, quality))
+    _, selected_index, selected, _ = max(candidates, key=lambda item: item[0])
     result = analyze_pair(baseline, selected, **kwargs)
     evidence = dict(result.evidence)
-    evidence["sequence"] = {"candidates": len(finals), "selected_index": selected_index}
+    evidence["sequence"] = {
+        "candidates": len(finals),
+        "selected_index": selected_index,
+        "frames": [
+            {
+                "index": index,
+                "selection_score": round(selection_score, 4),
+                "blur_score": round(quality.blur_score, 4),
+                "brightness": round(quality.brightness, 4),
+                "clipped_ratio": round(quality.clipped_ratio, 4),
+                "selected": index == selected_index,
+            }
+            for selection_score, index, _, quality in candidates
+        ],
+    }
     return replace(result, evidence=evidence)

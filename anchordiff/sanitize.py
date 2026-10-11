@@ -21,6 +21,7 @@ MAX_IMAGE_PIXELS = 25_000_000
 MAX_JSON_BYTES = 5 * 1024 * 1024
 MAX_DETECTIONS = 512
 MAX_LABEL_LENGTH = 64
+MAX_MASK_SIDE = 4096
 _LABEL_PATTERN = re.compile(r"^[\w .:/+\-]+$", re.UNICODE)
 
 
@@ -93,6 +94,20 @@ def validate_detection_payload(payload: dict[str, Any]) -> None:
             confidence = _finite_number(item.get("confidence", 1.0), f"{frame}[{index}] confidence")
             if not 0.0 <= confidence <= 1.0:
                 raise ValueError(f"{frame}[{index}] confidence must be between 0 and 1")
+            if "mask" in item:
+                mask = item["mask"]
+                if not isinstance(mask, list) or not mask or len(mask) > MAX_MASK_SIDE:
+                    raise ValueError(f"{frame}[{index}] mask must be a bounded 2D list")
+                width = None
+                for row in mask:
+                    if not isinstance(row, list) or not row or len(row) > MAX_MASK_SIDE:
+                        raise ValueError(f"{frame}[{index}] mask must be a bounded rectangular list")
+                    width = len(row) if width is None else width
+                    if len(row) != width:
+                        raise ValueError(f"{frame}[{index}] mask rows must have equal length")
+                    for value in row:
+                        if value not in (0, 1, False, True):
+                            raise ValueError(f"{frame}[{index}] mask values must be 0 or 1")
 
 
 def validate_anchor_payload(payload: dict[str, Any]) -> None:

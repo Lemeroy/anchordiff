@@ -5,6 +5,6 @@ type: software
 authors:
   - family-names: "AnchorDiff contributors"
     given-names: ""
-version: 0.1.0
+version: 0.5.0
 date-released: 2026-10-11
 license: Apache-2.0

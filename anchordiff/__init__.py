@@ -4,6 +4,7 @@ from .core import (
     AnalysisResult,
     Detection,
     DisorderAssessment,
+    HomographyQuality,
     ImageQuality,
     Match,
     ResidualFeatures,
@@ -13,11 +14,25 @@ from .core import (
     match_detections,
     residual_features,
 )
+from .geometry import (
+    AnchorObservation,
+    OpenCVAprilTagDetector,
+    OpenCVArucoDetector,
+    observations_to_points,
+)
+from .metrics import (
+    IsotonicCalibrator,
+    brier_score,
+    expected_calibration_error,
+    fit_isotonic_calibrator,
+    risk_coverage_curve,
+)
 
 __all__ = [
     "AnalysisResult",
     "Detection",
     "DisorderAssessment",
+    "HomographyQuality",
     "ImageQuality",
     "Match",
     "ResidualFeatures",
@@ -26,4 +41,13 @@ __all__ = [
     "classify_disorder",
     "match_detections",
     "residual_features",
+    "AnchorObservation",
+    "OpenCVAprilTagDetector",
+    "OpenCVArucoDetector",
+    "observations_to_points",
+    "IsotonicCalibrator",
+    "brier_score",
+    "expected_calibration_error",
+    "fit_isotonic_calibrator",
+    "risk_coverage_curve",
 ]

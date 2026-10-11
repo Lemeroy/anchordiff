@@ -10,7 +10,10 @@ clutter.
 ## Semantic Change Accounting
 
 1. Estimate a planar transform from optional fixed anchors. Normalize (F) into
-   the coordinate system of (B), and retain the reprojection confidence.
+   the coordinate system of (B), and retain scale-independent geometry
+   evidence. Optional OpenCV adapters detect ArUco or AprilTag markers and
+   flatten their corners for the same dependency-free estimator; OpenCV is
+   never imported by the CPU core.
 2. Compute cheap capture-quality signals: gradient energy as a blur proxy,
    normalized brightness and clipped-pixel ratio.
 3. Accept optional object detections from any adapter. Match same-class objects
@@ -34,6 +37,21 @@ changed pixels = explained object change + residual change + capture/unknown
 
 The categories are deliberately allowed to be incomplete in v0.1; the system
 must preserve unknown evidence rather than silently folding it into a score.
+
+## Normalized homography quality
+
+The estimator reports pixel reprojection RMSE, maximum reprojection error and
+the condition number of the 3 x 3 transform. RMSE is divided by the diagonal
+of the target anchor extent, producing `normalized_rmse` that is comparable
+across image resolutions. A collinear point set, non-finite projection,
+ill-conditioned transform or error larger than twice the target extent is
+marked `degenerate`; the confidence gate can then return `needs_review`
+instead of silently accepting a bad alignment.
+
+Marker adapters return stable `(marker_id, four corners)` observations. Only
+IDs present in both images are paired, sorted by ID, and passed to the core as
+ordinary 2D point correspondences. This keeps marker detection replaceable and
+the evidence contract independent of OpenCV.
 
 ## Why this is useful
 
