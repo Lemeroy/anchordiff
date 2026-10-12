@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.0.dev0
+## 0.6.0 - 2026-10-12
 
 - Replaced categorical `level` output with numeric `disorder_score` and an
   explicit `needs_review` quality gate.

@@ -18,11 +18,14 @@ mostly fixed and the expected state is represented by a reference image.
 > AnchorDiff reports visible change and uncertainty. It does not infer intent,
 > compliance or human performance, and it does not replace operational checks.
 
-## Current development state
+## v0.6.0 release
 
-The latest published release is v0.5.0. The current `main` branch includes
-the next development changes: a normalized disorder score, per-object action
-explanations and a default position tolerance of `0.1`.
+The v0.6.0 release adds a normalized disorder score, per-object action
+explanations and a default position tolerance of `0.1`. The output contract is
+generic and does not assume a particular workspace domain.
+
+See the [v0.6.0 release](https://github.com/Lemeroy/anchordiff/releases/tag/v0.6.0)
+for the release notes, or read the [release notes in this repository](docs/release-v0.6.0.md).
 
 ## What the v0.5.0 release contains
 
@@ -38,9 +41,6 @@ explanations and a default position tolerance of `0.1`.
 - Local-model ONNX and RKNN edge deployment examples.
 - A deterministic synthetic smoke benchmark that contains no camera frames or
   model weights.
-
-See the [v0.5.0 release](https://github.com/Lemeroy/anchordiff/releases/tag/v0.5.0)
-for the release notes.
 
 ## How the analysis works
 
@@ -298,7 +298,7 @@ credential/EXIF scan.
 | v0.3 | Detector adapters, object masks and benchmark fixtures |
 | v0.4 | Calibration, risk-coverage metrics and short-sequence evidence |
 | v0.5 | ONNX/RKNN deployment examples and privacy-safe benchmark |
-| next | Generic object actions, per-bbox explanations and normalized disorder score |
+| v0.6 | Generic object actions, per-bbox explanations and normalized disorder score |
 
 ## Scope and privacy
 
