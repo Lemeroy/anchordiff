@@ -25,7 +25,7 @@ def main() -> None:
         )
     report = {
         "name": "anchordiff-synthetic-smoke",
-        "version": "0.6.0",
+        "version": "0.6.1",
         "privacy": "synthetic-only",
         "backend": "cpu",
         "rows": rows,

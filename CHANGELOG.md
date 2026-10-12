@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.1 - 2026-10-12
+
+- Refreshed the public README and release documentation around the generic
+  object-analysis workflow.
+- Clarified the v0.6 output contract, position tolerance, review gate and
+  current verification status.
+
 ## 0.6.0 - 2026-10-12
 
 - Replaced categorical `level` output with numeric `disorder_score` and an

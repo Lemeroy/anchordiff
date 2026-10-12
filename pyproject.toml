@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "anchordiff"
-version = "0.6.0"
+version = "0.6.1"
 description = "CPU-first, explainable before/after state analysis for fixed-camera workspaces"
 readme = "README.md"
 requires-python = ">=3.10"

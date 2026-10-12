@@ -18,16 +18,17 @@ mostly fixed and the expected state is represented by a reference image.
 > AnchorDiff reports visible change and uncertainty. It does not infer intent,
 > compliance or human performance, and it does not replace operational checks.
 
-## v0.6.0 release
+## v0.6.1 release
 
-The v0.6.0 release adds a normalized disorder score, per-object action
-explanations and a default position tolerance of `0.1`. The output contract is
-generic and does not assume a particular workspace domain.
+The current release packages the generic object-analysis workflow with a
+normalized disorder score, per-object action explanations and a default
+position tolerance of `0.1`. The output contract does not assume a particular
+workspace domain.
 
-See the [v0.6.0 release](https://github.com/Lemeroy/anchordiff/releases/tag/v0.6.0)
-for the release notes, or read the [release notes in this repository](docs/release-v0.6.0.md).
+See the [v0.6.1 release](https://github.com/Lemeroy/anchordiff/releases/tag/v0.6.1)
+for the release notes, or read the [release notes in this repository](docs/release-v0.6.1.md).
 
-## What the v0.5.0 release contains
+## Included capabilities
 
 - CPU-first two-image and short-sequence analysis with JSON evidence and visual
   overlays.
@@ -286,8 +287,8 @@ pytest -q
 python scripts/security_scan.py
 ```
 
-The v0.5.0 release was published with 34 passing tests and a successful
-credential/EXIF scan.
+The v0.6.1 release was verified with 37 passing tests, a successful synthetic
+CPU benchmark, Python compilation checks and a successful credential/EXIF scan.
 
 ## Release sequence
 
@@ -299,6 +300,7 @@ credential/EXIF scan.
 | v0.4 | Calibration, risk-coverage metrics and short-sequence evidence |
 | v0.5 | ONNX/RKNN deployment examples and privacy-safe benchmark |
 | v0.6 | Generic object actions, per-bbox explanations and normalized disorder score |
+| v0.6.1 | Public README and release contract refresh |
 
 ## Scope and privacy
 
