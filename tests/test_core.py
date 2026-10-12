@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 
 from anchordiff.core import (
     Detection,
@@ -18,24 +19,43 @@ from anchordiff.core import (
 
 def test_hungarian_matching_prefers_same_class_and_nearby_object():
     baseline = [
-        Detection("scope", (20, 20, 40, 40), 0.95),
-        Detection("device_b", (120, 20, 40, 40), 0.94),
+        Detection("object_a", (20, 20, 40, 40), 0.95),
+        Detection("object_b", (120, 20, 40, 40), 0.94),
     ]
     final = [
-        Detection("device_b", (118, 22, 40, 40), 0.92),
-        Detection("scope", (24, 21, 40, 40), 0.93),
+        Detection("object_b", (118, 22, 40, 40), 0.92),
+        Detection("object_a", (23, 21, 40, 40), 0.93),
     ]
 
     matches = match_detections(baseline, final)
 
     assert [(m.baseline.label, m.final.label) for m in matches] == [
-        ("scope", "scope"),
-        ("device_b", "device_b"),
+        ("object_a", "object_a"),
+        ("object_b", "object_b"),
     ]
-    assert all(m.status == "returned" for m in matches)
+    assert all(m.status == "stable" for m in matches)
 
 
-def test_residual_features_exclude_explained_instrument_area():
+def test_position_tolerance_marks_demo_shift_as_moved():
+    baseline = [Detection("object_a", (18, 20, 62, 42), 0.96)]
+    final = [Detection("object_a", (23, 23, 62, 42), 0.95)]
+
+    matches = match_detections(baseline, final)
+
+    assert matches[0].displacement == pytest.approx(0.1143, abs=1e-4)
+    assert matches[0].status == "moved"
+
+
+def test_position_tolerance_can_be_overridden_for_a_scene():
+    baseline = [Detection("object_a", (18, 20, 62, 42), 0.96)]
+    final = [Detection("object_a", (23, 23, 62, 42), 0.95)]
+
+    matches = match_detections(baseline, final, position_tolerance=0.12)
+
+    assert matches[0].status == "stable"
+
+
+def test_residual_features_exclude_explained_object_area():
     baseline = np.zeros((100, 100, 3), dtype=np.uint8)
     final = baseline.copy()
     final[20:40, 20:40] = 255  # explained object movement
@@ -52,13 +72,14 @@ def test_residual_features_exclude_explained_instrument_area():
     assert features.explained_area_ratio > 0.03
 
 
-def test_low_quality_abstains_before_disorder_label():
+def test_low_quality_abstains_before_disorder_score():
     features = {
         "residual_area_ratio": 0.0,
         "connected_components": 0,
         "largest_component_ratio": 0.0,
-        "moved_instruments": 0,
-        "missing_instruments": 0,
+        "moved_objects": 0,
+        "missing_objects": 0,
+        "new_objects": 0,
     }
     quality = ImageQuality(
         blur_score=2.0,
@@ -69,7 +90,8 @@ def test_low_quality_abstains_before_disorder_label():
 
     assessment = classify_disorder(features, quality)
 
-    assert assessment.level == "needs_review"
+    assert assessment.needs_review is True
+    assert assessment.score is None
     assert "blur" in assessment.reasons
 
 
@@ -80,7 +102,8 @@ def test_end_to_end_returns_explainable_evidence():
 
     result = analyze_pair(baseline, final)
 
-    assert result.level in {"clean", "minor", "major", "needs_review"}
+    assert result.disorder_score is None
+    assert isinstance(result.needs_review, bool)
     assert result.evidence["method"] == "semantic_change_accounting"
     assert "residual_area_ratio" in result.evidence["features"]
 
@@ -98,6 +121,8 @@ def test_residual_regions_include_stable_geometry_evidence():
         {
             "id": 1,
             "bbox": [15, 10, 20, 10],
+            "action": "unexplained_change",
+            "explanation": "changed pixels not accounted for by matched object masks or boxes",
             "area_px": 200,
             "area_ratio": 0.02,
             "centroid": [24.5, 14.5],
@@ -105,6 +130,8 @@ def test_residual_regions_include_stable_geometry_evidence():
         {
             "id": 2,
             "bbox": [70, 60, 6, 5],
+            "action": "unexplained_change",
+            "explanation": "changed pixels not accounted for by matched object masks or boxes",
             "area_px": 30,
             "area_ratio": 0.003,
             "centroid": [72.5, 62.0],
@@ -176,12 +203,13 @@ def test_low_detector_confidence_abstains():
     result = analyze_pair(
         image,
         image.copy(),
-        baseline_detections=[Detection("scope", (5, 5, 12, 12), 0.42)],
-        final_detections=[Detection("scope", (5, 5, 12, 12), 0.45)],
+        baseline_detections=[Detection("object_a", (5, 5, 12, 12), 0.42)],
+        final_detections=[Detection("object_a", (5, 5, 12, 12), 0.45)],
     )
 
-    assert result.level == "needs_review"
+    assert result.needs_review is True
     assert "detection_confidence" in result.evidence["reasons"]
+    assert result.disorder_score is None
 
 
 def test_object_masks_are_used_for_semantic_change_accounting():
@@ -196,11 +224,41 @@ def test_object_masks_are_used_for_semantic_change_accounting():
     result = analyze_pair(
         baseline,
         final,
-        baseline_detections=[Detection("device_a", (10, 10, 10, 10), 0.95, baseline_mask)],
-        final_detections=[Detection("device_a", (10, 10, 10, 10), 0.95, final_mask)],
+        baseline_detections=[Detection("object_a", (10, 10, 10, 10), 0.95, baseline_mask)],
+        final_detections=[Detection("object_a", (10, 10, 10, 10), 0.95, final_mask)],
     )
 
     # The changed pixels outside the predicted object mask remain residual evidence.
     assert result.residual.residual_area_ratio > 0.02
     assert result.residual.explained_area_ratio < 0.02
     assert result.evidence["matches"][0]["mask_area_px"] == 25
+
+
+def test_demo_detection_report_is_generic_and_explains_each_object():
+    from anchordiff.synthetic import make_fixture
+
+    fixture = make_fixture(seed=11, size=(256, 256), clutter=True)
+    baseline = [
+        Detection("object_a", (18, 20, 62, 42), 0.96),
+        Detection("object_b", (142, 22, 55, 35), 0.95),
+        Detection("object_c", (32, 146, 55, 35), 0.95),
+    ]
+    final = [
+        Detection("object_a", (23, 23, 62, 42), 0.95),
+        Detection("object_b", (142, 22, 55, 35), 0.95),
+        Detection("object_c", (32, 146, 55, 35), 0.95),
+    ]
+
+    result = analyze_pair(
+        fixture.before,
+        fixture.after,
+        baseline_detections=baseline,
+        final_detections=final,
+    )
+
+    objects = result.evidence["matches"]
+    assert objects[0]["status"] == "moved"
+    assert objects[0]["action"] == "moved"
+    assert "explanation" in objects[0]
+    assert [item["label"] for item in objects] == ["object_a", "object_b", "object_c"]
+    assert len(result.evidence["residual_regions"]) == 2

@@ -11,7 +11,7 @@
 - edge-AI developers targeting mini PCs, N100-class CPUs or RK3588;
 - fixed-camera workspaces, inventory checks and inspection workflows;
 - researchers who need a deterministic paired-image benchmark instead of a
-  black-box cleanliness score.
+  black-box workspace score.
 
 ## The first demo should show five things
 

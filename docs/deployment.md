@@ -11,10 +11,11 @@ python -m pip install -e ".[onnx]"
 python -m examples.run_edge \
   --backend onnx \
   --model models/detector.onnx \
-  --classes device_a,device_b \
+  --classes object_a,object_b \
   --before examples/before.png \
   --after examples/after.png \
-  --output out
+  --output out \
+  --position-threshold 0.1
 ```
 
 On a supported Rockchip image:
@@ -24,10 +25,11 @@ python -m pip install -e ".[rknn]"
 python -m examples.run_edge \
   --backend rknn \
   --model models/detector.rknn \
-  --classes device_a,device_b \
+  --classes object_a,object_b \
   --before examples/before.png \
   --after examples/after.png \
-  --output out
+  --output out \
+  --position-threshold 0.1
 ```
 
 The adapters accept the common row format

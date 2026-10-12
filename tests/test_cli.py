@@ -7,7 +7,7 @@ from anchordiff.cli import main
 
 
 def test_cli_analyze_writes_machine_readable_evidence(tmp_path: Path):
-    before = Image.new("RGB", (64, 64), "white")
+    before = Image.new("RGB", (64, 64), (120, 120, 120))
     after = before.copy()
     pixels = after.load()
     for x in range(40, 55):
@@ -27,3 +27,6 @@ def test_cli_analyze_writes_machine_readable_evidence(tmp_path: Path):
     assert "residual_regions" in report["evidence"]
     assert "objects" in report
     assert "instruments" not in report
+    assert "level" not in report
+    assert 0.0 <= report["disorder_score"] <= 1.0
+    assert "needs_review" in report

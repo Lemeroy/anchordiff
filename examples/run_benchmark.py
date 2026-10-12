@@ -17,15 +17,15 @@ def main() -> None:
         rows.append(
             {
                 "seed": seed,
-                "level": result.level,
-                "score": round(result.score, 6),
+                "disorder_score": round(result.disorder_score, 6),
+                "needs_review": result.needs_review,
                 "residual_area_ratio": round(result.residual.residual_area_ratio, 6),
                 "components": result.residual.connected_components,
             }
         )
     report = {
         "name": "anchordiff-synthetic-smoke",
-        "version": "0.5.0",
+        "version": "0.6.0.dev0",
         "privacy": "synthetic-only",
         "backend": "cpu",
         "rows": rows,

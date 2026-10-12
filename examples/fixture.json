@@ -2,9 +2,9 @@
   "seed": 11,
   "ground_truth": {
     "object_states": {
-      "device_a": "moved",
-      "device_b": "returned",
-      "device_c": "returned"
+      "object_a": "moved",
+      "object_b": "stable",
+      "object_c": "stable"
     },
     "residual_regions": 2
   }

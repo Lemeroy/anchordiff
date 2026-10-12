@@ -22,14 +22,14 @@ def test_image_loader_drops_exif_metadata(tmp_path: Path):
 
 def test_detection_payload_rejects_non_finite_or_oversized_input():
     with pytest.raises(ValueError, match="finite"):
-        validate_detection_payload({"before": [{"label": "scope", "bbox": [0, 0, float("nan"), 4]}]})
+        validate_detection_payload({"before": [{"label": "object_a", "bbox": [0, 0, float("nan"), 4]}]})
     with pytest.raises(ValueError, match="maximum"):
         validate_detection_payload({"before": [{"label": "x" * 100, "bbox": [0, 0, 4, 4]}]})
 
 
 def test_json_detector_validates_untrusted_fixture(tmp_path: Path):
     path = tmp_path / "detections.json"
-    path.write_text('{"before": [{"label": "scope", "bbox": [0, 0, -2, 4]}]}', encoding="utf-8")
+    path.write_text('{"before": [{"label": "object_a", "bbox": [0, 0, -2, 4]}]}', encoding="utf-8")
 
     with pytest.raises(ValueError, match="bbox"):
         JsonDetector(path)

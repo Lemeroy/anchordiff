@@ -7,9 +7,9 @@
 **Explainable before/after state analysis for fixed-camera workspaces.**
 
 AnchorDiff compares a reference capture with one or more later captures. It
-reports which tracked objects were returned, moved, missing or newly visible,
-which visual changes remain unexplained, and why the result was accepted or
-marked `needs_review`.
+reports which tracked objects stayed within tolerance, moved, disappeared or
+became newly visible, which visual changes remain unexplained, and whether the
+capture is reliable enough to use.
 
 The project is deliberately general. A workspace can be a storage area,
 inspection surface, robot cell or any other scene where the camera is fixed or
@@ -17,6 +17,12 @@ mostly fixed and the expected state is represented by a reference image.
 
 > AnchorDiff reports visible change and uncertainty. It does not infer intent,
 > compliance or human performance, and it does not replace operational checks.
+
+## Current development state
+
+The latest published release is v0.5.0. The current `main` branch includes
+the next development changes: a normalized disorder score, per-object action
+explanations and a default position tolerance of `0.1`.
 
 ## What the v0.5.0 release contains
 
@@ -51,7 +57,7 @@ reference + final capture(s)
   → explained masks or boxes
   → robust pixel difference
   → residual connected components
-  → rule-based score and confidence gate
+  → rule-based disorder score and confidence gate
   → JSON evidence, residual mask and numbered overlay
 ```
 
@@ -62,8 +68,9 @@ changed pixels = explained object change + residual change + capture/unknown
 ```
 
 If blur, clipping, occlusion, missing markers, poor detection confidence or
-strong camera motion makes the evidence unreliable, the result is
-`needs_review` instead of an overconfident label.
+strong camera motion makes the evidence unreliable, `needs_review` is true and
+`disorder_score` is left unavailable instead of being treated as a reliable
+measurement.
 
 ## Install
 
@@ -123,10 +130,10 @@ For a portable detector fixture, provide before/after boxes in JSON:
 ```json
 {
   "before": [
-    {"label": "device_a", "bbox": [20, 20, 80, 55], "confidence": 0.94}
+    {"label": "object_a", "bbox": [20, 20, 80, 55], "confidence": 0.94}
   ],
   "after": [
-    {"label": "device_a", "bbox": [25, 22, 80, 55], "confidence": 0.93}
+    {"label": "object_a", "bbox": [25, 22, 80, 55], "confidence": 0.93}
   ]
 }
 ```
@@ -197,20 +204,31 @@ conditioning and a degenerate-geometry flag.
 
 ## Output contract
 
-`result.json` contains a top-level `objects` list, residual region records and
-the full evidence object:
+`result.json` contains a top-level `disorder_score`, a reliability gate, an
+`objects` list, residual region records and the full evidence object:
 
 ```json
 {
-  "level": "minor",
-  "score": 0.23,
+  "disorder_score": 0.23,
+  "needs_review": false,
   "objects": [
-    {"class": "device_a", "status": "moved", "displacement": 0.18}
+    {
+      "label": "object_a",
+      "status": "moved",
+      "action": "moved",
+      "explanation": "final bbox moved beyond the allowed position tolerance",
+      "displacement": 0.29,
+      "position_tolerance": 0.1,
+      "baseline_bbox": [20, 20, 80, 55],
+      "final_bbox": [35, 32, 80, 55]
+    }
   ],
   "residual_regions": [
     {
       "id": 1,
       "bbox": [120, 80, 24, 18],
+      "action": "unexplained_change",
+      "explanation": "changed pixels not accounted for by matched object masks or boxes",
       "area_px": 286,
       "area_ratio": 0.0044,
       "centroid": [131.5, 88.2]
@@ -218,15 +236,24 @@ the full evidence object:
   ],
   "evidence": {
     "method": "semantic_change_accounting",
-    "method_version": "sca-0.2",
+    "method_version": "sca-0.3",
     "reasons": ["unexplained_residual"]
   }
 }
 ```
 
+`disorder_score` is a rule-based value from `0` (less detected change) to `1`
+(more detected change); it is not a probability. If `needs_review` is true,
+the score is `null` because capture quality or detector confidence did not
+support a reliable measurement.
+
 Residual regions are connected components sorted by pixel area. Their bounding
 boxes use `[x, y, width, height]` coordinates, and the same IDs are drawn in
-`overlay.png` so a UI can link a JSON record to a visible region.
+`overlay.png` so a UI can link a JSON record to a visible region. The default
+position tolerance is `0.1`: normalized center displacement at or below this
+value is reported as `within_position_tolerance`; larger displacement is
+reported as `moved`. Override it with `--position-threshold` when calibrating a
+camera and scene.
 
 ## Calibration and edge deployment
 
@@ -271,6 +298,7 @@ credential/EXIF scan.
 | v0.3 | Detector adapters, object masks and benchmark fixtures |
 | v0.4 | Calibration, risk-coverage metrics and short-sequence evidence |
 | v0.5 | ONNX/RKNN deployment examples and privacy-safe benchmark |
+| next | Generic object actions, per-bbox explanations and normalized disorder score |
 
 ## Scope and privacy
 

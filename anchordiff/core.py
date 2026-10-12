@@ -15,6 +15,7 @@ import numpy as np
 
 
 Array = np.ndarray
+POSITION_TOLERANCE = 0.10
 
 
 @dataclass(frozen=True)
@@ -92,21 +93,27 @@ class ResidualFeatures:
 
 @dataclass(frozen=True)
 class DisorderAssessment:
-    level: str
-    score: float
+    score: float | None
+    needs_review: bool
     reasons: tuple[str, ...]
-    rule_version: str = "sca-0.1"
+    rule_version: str = "sca-0.3"
 
 
 @dataclass(frozen=True)
 class AnalysisResult:
-    level: str
-    score: float
+    disorder_score: float | None
+    needs_review: bool
     quality: ImageQuality
     matches: tuple[Match, ...]
     residual: ResidualFeatures
     evidence: dict
     residual_mask: Array
+
+    @property
+    def score(self) -> float | None:
+        """Backward-compatible alias for the normalized disorder score."""
+
+        return self.disorder_score
 
 
 def _gray(image: Array) -> Array:
@@ -348,9 +355,21 @@ def _hungarian(cost: Sequence[Sequence[float]]) -> list[tuple[int, int]]:
 def match_detections(
     baseline: Sequence[Detection],
     final: Sequence[Detection],
-    return_threshold: float = 0.35,
+    position_tolerance: float = POSITION_TOLERANCE,
+    *,
+    return_threshold: float | None = None,
 ) -> tuple[Match, ...]:
-    """Match objects by class and geometry, retaining missing/new observations."""
+    """Match objects by label and geometry, retaining missing/new observations.
+
+    ``position_tolerance`` is the normalized center displacement accepted as
+    approximately unchanged. The legacy ``return_threshold`` keyword remains
+    accepted as an alias for callers migrating from v0.5.
+    """
+
+    if return_threshold is not None:
+        position_tolerance = return_threshold
+    if not 0.0 <= position_tolerance <= 1.0:
+        raise ValueError("position_tolerance must be between 0 and 1")
 
     matches: list[Match] = []
     used_final: set[int] = set()
@@ -366,7 +385,7 @@ def match_detections(
                 baseline[i].center[0] - final[j].center[0],
                 baseline[i].center[1] - final[j].center[1],
             ) / max(math.sqrt(baseline[i].area), math.sqrt(final[j].area), 1.0)
-            status = "returned" if displacement <= return_threshold else "moved"
+            status = "stable" if displacement <= position_tolerance else "moved"
             matches.append(Match(baseline[i], final[j], status, displacement, _pair_cost(baseline[i], final[j])))
         matched_base = {bi[row] for row, _ in pairs}
         for i in bi:
@@ -417,6 +436,8 @@ def _residual_region_evidence(mask: Array) -> list[dict]:
         regions.append(
             {
                 "bbox": [x0, y0, x1 - x0 + 1, y1 - y0 + 1],
+                "action": "unexplained_change",
+                "explanation": "changed pixels not accounted for by matched object masks or boxes",
                 "area_px": area,
                 "area_ratio": round(area / total, 6),
                 "centroid": [round(float(np.mean(xs)), 4), round(float(np.mean(ys)), 4)],
@@ -469,7 +490,7 @@ def residual_features(
     return ResidualFeatures(residual_ratio, explained_ratio, changed_ratio, len(components), largest, entropy)
 
 
-def classify_disorder(features: ResidualFeatures | dict, quality: ImageQuality, *, rule_version: str = "sca-0.1") -> DisorderAssessment:
+def classify_disorder(features: ResidualFeatures | dict, quality: ImageQuality, *, rule_version: str = "sca-0.3") -> DisorderAssessment:
     """Apply monotonic, inspectable rules and abstain when evidence is unreliable."""
 
     if isinstance(features, dict):
@@ -477,14 +498,15 @@ def classify_disorder(features: ResidualFeatures | dict, quality: ImageQuality, 
         residual_ratio = float(values.get("residual_area_ratio", 0.0))
         components = int(values.get("connected_components", 0))
         largest = float(values.get("largest_component_ratio", 0.0))
-        moved = int(values.get("moved_instruments", 0))
-        missing = int(values.get("missing_instruments", 0))
+        moved = int(values.get("moved_objects", 0))
+        missing = int(values.get("missing_objects", 0))
+        new = int(values.get("new_objects", 0))
         entropy = 0.0
     else:
         residual_ratio = features.residual_area_ratio
         components = features.connected_components
         largest = features.largest_component_ratio
-        moved = missing = 0
+        moved = missing = new = 0
         entropy = features.spatial_entropy
     reasons: list[str] = []
     if quality.blur_score < 5.0:
@@ -496,29 +518,24 @@ def classify_disorder(features: ResidualFeatures | dict, quality: ImageQuality, 
     if quality.alignment_confidence < 0.80:
         reasons.append("alignment")
     if reasons:
-        return DisorderAssessment("needs_review", 1.0, tuple(reasons), rule_version)
+        return DisorderAssessment(None, True, tuple(reasons), rule_version)
+    state_changes = moved + missing + new
     score = min(
         1.0,
         0.55 * min(residual_ratio / 0.20, 1.0)
         + 0.15 * min(components / 12.0, 1.0)
         + 0.15 * min(largest / 0.12, 1.0)
-        + 0.10 * min((moved + missing) / 3.0, 1.0)
+        + 0.10 * min(state_changes / 3.0, 1.0)
         + 0.05 * entropy,
     )
-    if missing or moved:
-        reasons.append("instrument_state_change")
+    if state_changes:
+        reasons.append("object_state_change")
     if residual_ratio > 0.015:
         reasons.append("unexplained_residual")
-    if score < 0.15:
-        level = "clean"
-    elif score < 0.35:
-        level = "minor"
-    else:
-        level = "major"
-    return DisorderAssessment(level, score, tuple(dict.fromkeys(reasons)), rule_version)
+    return DisorderAssessment(score, False, tuple(dict.fromkeys(reasons)), rule_version)
 
 
-def _serialize_match(match: Match) -> dict:
+def _serialize_match(match: Match, position_tolerance: float) -> dict:
     masks = [
         detection.mask
         for detection in (match.baseline, match.final)
@@ -527,13 +544,28 @@ def _serialize_match(match: Match) -> dict:
     mask_area = 0
     if masks:
         mask_area = int(np.count_nonzero(np.logical_or.reduce(masks)))
+    if match.status == "stable":
+        action = "within_position_tolerance"
+        explanation = "final bbox remains within the allowed position tolerance"
+    elif match.status == "moved":
+        action = "moved"
+        explanation = "final bbox moved beyond the allowed position tolerance"
+    elif match.status == "missing":
+        action = "missing"
+        explanation = "baseline bbox is absent from the final capture"
+    else:
+        action = "new"
+        explanation = "bbox appears only in the final capture"
     return {
-        "class": match.baseline.label,
+        "label": match.baseline.label,
         "status": match.status,
+        "action": action,
+        "explanation": explanation,
         "displacement": round(match.displacement, 4),
         "cost": round(match.cost, 4),
-        "baseline_bbox": list(match.baseline.bbox),
-        "final_bbox": list(match.final.bbox) if match.final else None,
+        "position_tolerance": round(position_tolerance, 4),
+        "baseline_bbox": None if match.status == "new" else list(match.baseline.bbox),
+        "final_bbox": None if match.status == "missing" else list(match.final.bbox) if match.final else None,
         "confidence": round(min(match.baseline.confidence, match.final.confidence if match.final else match.baseline.confidence), 4),
         "mask_area_px": mask_area,
     }
@@ -547,6 +579,7 @@ def analyze_pair(
     final_detections: Sequence[Detection] = (),
     baseline_anchors: Sequence[Sequence[float]] | None = None,
     final_anchors: Sequence[Sequence[float]] | None = None,
+    position_tolerance: float = POSITION_TOLERANCE,
 ) -> AnalysisResult:
     """Run AnchorDiff's core pipeline and return evidence plus a residual mask."""
 
@@ -561,7 +594,11 @@ def analyze_pair(
             homography,
         )
     quality = image_quality(aligned_final, alignment_confidence)
-    matches = match_detections(baseline_detections, final_detections)
+    matches = match_detections(
+        baseline_detections,
+        final_detections,
+        position_tolerance=position_tolerance,
+    )
     explained = np.zeros(base.shape[:2], dtype=bool)
     for match in matches:
         if match.status in {"moved", "missing", "new"}:
@@ -589,8 +626,9 @@ def analyze_pair(
             "residual_area_ratio": residual.residual_area_ratio,
             "connected_components": residual.connected_components,
             "largest_component_ratio": residual.largest_component_ratio,
-            "moved_instruments": moved,
-            "missing_instruments": missing,
+            "moved_objects": moved,
+            "missing_objects": missing,
+            "new_objects": sum(m.status == "new" for m in matches),
         },
         quality,
     )
@@ -599,8 +637,8 @@ def analyze_pair(
         for detection in (*baseline_detections, *final_detections)
     ):
         assessment = DisorderAssessment(
-            "needs_review",
-            max(assessment.score, 0.90),
+            None,
+            True,
             tuple(dict.fromkeys((*assessment.reasons, "detection_confidence"))),
             assessment.rule_version,
         )
@@ -608,15 +646,25 @@ def analyze_pair(
     residual_mask = changed_mask & ~explained
     evidence = {
         "method": "semantic_change_accounting",
-        "method_version": "sca-0.2",
+        "method_version": "sca-0.3",
         "features": asdict(residual),
         "residual_regions": _residual_region_evidence(residual_mask),
         "quality": asdict(quality),
         "geometry": asdict(alignment_quality) if alignment_quality is not None else None,
-        "matches": [_serialize_match(match) for match in matches],
+        "matches": [_serialize_match(match, position_tolerance) for match in matches],
+        "position_tolerance": position_tolerance,
+        "needs_review": assessment.needs_review,
         "reasons": list(assessment.reasons),
     }
-    return AnalysisResult(assessment.level, assessment.score, quality, matches, residual, evidence, residual_mask)
+    return AnalysisResult(
+        assessment.score,
+        assessment.needs_review,
+        quality,
+        matches,
+        residual,
+        evidence,
+        residual_mask,
+    )
 
 
 def analyze_sequence(

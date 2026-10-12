@@ -10,13 +10,13 @@ from anchordiff.detectors import JsonDetector, ONNXDetector, RKNNDetector
 def test_json_detector_is_model_agnostic(tmp_path):
     path = tmp_path / "detections.json"
     path.write_text(
-        json.dumps({"before": [{"label": "scope", "bbox": [1, 2, 10, 12], "confidence": 0.9}]}),
+        json.dumps({"before": [{"label": "object_a", "bbox": [1, 2, 10, 12], "confidence": 0.9}]}),
         encoding="utf-8",
     )
 
     detections = JsonDetector(path).detect(None, "before")
 
-    assert detections[0].label == "scope"
+    assert detections[0].label == "object_a"
     assert detections[0].bbox == (1.0, 2.0, 10.0, 12.0)
 
 
@@ -27,7 +27,7 @@ def test_json_detector_returns_bounded_object_mask(tmp_path):
             {
                 "before": [
                     {
-                        "label": "device_a",
+                        "label": "object_a",
                         "bbox": [1, 2, 4, 3],
                         "confidence": 0.9,
                         "mask": [[0, 1, 1, 0], [0, 1, 1, 0], [0, 0, 0, 0]],
@@ -54,7 +54,7 @@ def test_json_detector_rejects_mask_larger_than_image(tmp_path):
             {
                 "before": [
                     {
-                        "label": "device_a",
+                        "label": "object_a",
                         "bbox": [1, 2, 4, 3],
                         "mask": [[1] * 20 for _ in range(20)],
                     }
@@ -90,10 +90,10 @@ def test_onnx_adapter_uses_injected_session_and_common_row_decoder():
 
     image = np.zeros((8, 12, 3), dtype=np.uint8)
     detections = ONNXDetector(
-        "unused.onnx", class_names=["device_a"], input_size=(16, 16), session=FakeSession()
+        "unused.onnx", class_names=["object_a"], input_size=(16, 16), session=FakeSession()
     ).detect(image)
 
-    assert detections[0].label == "device_a"
+    assert detections[0].label == "object_a"
     assert detections[0].bbox == (1.0, 2.0, 10.0, 10.0)
 
 
@@ -111,7 +111,7 @@ def test_rknn_adapter_accepts_injected_runtime_and_releases_it():
 
     runtime = FakeRuntime()
     detections = RKNNDetector(
-        "unused.rknn", class_names=["device_a"], input_size=(16, 16), runtime=runtime
+        "unused.rknn", class_names=["object_a"], input_size=(16, 16), runtime=runtime
     ).detect(np.zeros((8, 12, 3), dtype=np.uint8))
 
     assert detections[0].bbox == (0.0, 0.0, 12.0, 8.0)

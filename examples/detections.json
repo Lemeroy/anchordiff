@@ -1,12 +1,12 @@
 {
   "before": [
-    {"label": "device_a", "bbox": [18, 20, 62, 42], "confidence": 0.96},
-    {"label": "device_b", "bbox": [142, 22, 55, 35], "confidence": 0.95},
-    {"label": "device_c", "bbox": [32, 146, 55, 35], "confidence": 0.95}
+    {"label": "object_a", "bbox": [18, 20, 62, 42], "confidence": 0.96},
+    {"label": "object_b", "bbox": [142, 22, 55, 35], "confidence": 0.95},
+    {"label": "object_c", "bbox": [32, 146, 55, 35], "confidence": 0.95}
   ],
   "after": [
-    {"label": "device_a", "bbox": [23, 23, 62, 42], "confidence": 0.95},
-    {"label": "device_b", "bbox": [142, 22, 55, 35], "confidence": 0.95},
-    {"label": "device_c", "bbox": [32, 146, 55, 35], "confidence": 0.95}
+    {"label": "object_a", "bbox": [23, 23, 62, 42], "confidence": 0.95},
+    {"label": "object_b", "bbox": [142, 22, 55, 35], "confidence": 0.95},
+    {"label": "object_c", "bbox": [32, 146, 55, 35], "confidence": 0.95}
   ]
 }

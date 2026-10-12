@@ -16,9 +16,11 @@ clutter.
    never imported by the CPU core.
 2. Compute cheap capture-quality signals: gradient energy as a blur proxy,
    normalized brightness and clipped-pixel ratio.
-3. Accept optional object detections from any adapter. Match same-class objects
+3. Accept optional object detections from any adapter. Match same-label objects
    with a minimum-cost Hungarian assignment using IoU, center distance and area
-   ratio. Emit `returned`, `moved`, `missing` and `new` states.
+   ratio. Emit `stable`, `moved`, `missing` and `new` actions. Stability uses a
+   default normalized center-displacement tolerance of `0.1`, which can be
+   overridden for a particular camera and scene.
 4. Compute a robust difference mask using a median/MAD threshold. Build the
    union of boxes for explained object transitions and remove it from the
    difference mask.
@@ -26,8 +28,15 @@ clutter.
    entropy. Also emit one stable record per residual component with its ID,
    half-open bounding box, pixel area, area ratio and centroid. These are
    evidence, not a hidden embedding.
-6. Apply monotonic, versioned rules. If geometry or quality is unreliable,
-   abstain with `needs_review` and preserve the reasons.
+6. Apply versioned rules to produce a normalized `disorder_score` in `[0, 1]`.
+   If geometry, capture quality or detector confidence is unreliable, set
+   `needs_review` and leave `disorder_score` unavailable. Preserve the reasons.
+
+Every matched object record includes its action, baseline and final bbox,
+displacement, configured tolerance and a short explanation. Every residual bbox
+is marked `unexplained_change`, so downstream tools can show why each region is
+present. The score is a rule-based comparison signal, not a calibrated
+probability or a universal cleanliness scale.
 
 The key invariant is:
 

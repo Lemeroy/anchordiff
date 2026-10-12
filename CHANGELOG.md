@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0.dev0
+
+- Replaced categorical `level` output with numeric `disorder_score` and an
+  explicit `needs_review` quality gate.
+- Generalized object labels and examples so the public project carries no
+  domain-specific equipment vocabulary.
+- Added per-object actions, bbox explanations and configurable position
+  tolerance, defaulting to `0.1` normalized center displacement.
+- Added residual-region actions and explanations for every unexplained bbox.
+
 ## 0.5.0 - 2026-10-11
 
 - Added optional ArUco and AprilTag marker adapters with normalized homography

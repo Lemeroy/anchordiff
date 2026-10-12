@@ -6,7 +6,7 @@ import argparse
 from pathlib import Path
 
 from anchordiff.cli import _write_outputs
-from anchordiff.core import analyze_pair
+from anchordiff.core import POSITION_TOLERANCE, analyze_pair
 from anchordiff.detectors import ONNXDetector, RKNNDetector
 from anchordiff.sanitize import load_sanitized_rgb
 
@@ -20,6 +20,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--output", required=True, help="output directory")
     parser.add_argument("--classes", default="", help="comma-separated class names")
     parser.add_argument("--confidence", type=float, default=0.35)
+    parser.add_argument("--position-threshold", type=float, default=POSITION_TOLERANCE)
     parser.add_argument("--input-size", type=int, nargs=2, default=(640, 640), metavar=("WIDTH", "HEIGHT"))
     return parser
 
@@ -50,13 +51,15 @@ def main(argv: list[str] | None = None) -> int:
             final,
             baseline_detections=before_detections,
             final_detections=final_detections,
+            position_tolerance=args.position_threshold,
         )
         _write_outputs(result, final, Path(args.output))
     finally:
         close = getattr(detector, "close", None)
         if callable(close):
             close()
-    print(f"level={result.level} score={result.score:.4f}")
+    score = "null" if result.disorder_score is None else f"{result.disorder_score:.4f}"
+    print(f"disorder_score={score} needs_review={result.needs_review}")
     return 0
 
 

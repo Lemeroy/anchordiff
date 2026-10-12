@@ -34,9 +34,9 @@ def make_fixture(
     noise = rng.normal(0, 2.0, size=(height, width, 1))
     before = np.clip(before.astype(np.float32) + noise, 0, 255).astype(np.uint8)
     objects = [
-        {"label": "device_a", "bbox": (18, 20, 62, 42), "color": (45, 70, 105)},
-        {"label": "device_b", "bbox": (142, 22, 55, 35), "color": (90, 48, 38)},
-        {"label": "device_c", "bbox": (32, 146, 55, 35), "color": (45, 92, 65)},
+        {"label": "object_a", "bbox": (18, 20, 62, 42), "color": (45, 70, 105)},
+        {"label": "object_b", "bbox": (142, 22, 55, 35), "color": (90, 48, 38)},
+        {"label": "object_c", "bbox": (32, 146, 55, 35), "color": (45, 92, 65)},
     ]
     for item in objects:
         _rectangle(before, *item["bbox"], item["color"])
@@ -53,7 +53,7 @@ def make_fixture(
     metadata = {
         "seed": seed,
         "ground_truth": {
-            "object_states": {"device_a": "moved", "device_b": "returned", "device_c": "returned"},
+            "object_states": {"object_a": "moved", "object_b": "stable", "object_c": "stable"},
             "residual_regions": residual_regions,
         },
     }

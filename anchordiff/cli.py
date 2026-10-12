@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 from PIL import Image, ImageDraw
 
-from .core import Detection, analyze_pair, analyze_sequence
+from .core import POSITION_TOLERANCE, Detection, analyze_pair, analyze_sequence
 from .sanitize import (
     load_json_payload,
     load_sanitized_rgb,
@@ -64,8 +64,8 @@ def _jsonable(value: Any) -> Any:
 def _write_outputs(result, selected: np.ndarray, output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     payload = {
-        "level": result.level,
-        "score": result.score,
+        "disorder_score": result.disorder_score,
+        "needs_review": result.needs_review,
         "quality": asdict(result.quality),
         "objects": result.evidence["matches"],
         "residual_regions": result.evidence["residual_regions"],
@@ -96,6 +96,12 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--output", required=True, help="directory for JSON and visual evidence")
     analyze.add_argument("--detections", help="optional JSON with before/after detector outputs")
     analyze.add_argument("--anchors", help="optional JSON with before/after 2D anchor points")
+    analyze.add_argument(
+        "--position-threshold",
+        type=float,
+        default=POSITION_TOLERANCE,
+        help="normalized center displacement accepted as approximately unchanged (default: 0.1)",
+    )
     return parser
 
 
@@ -112,13 +118,22 @@ def main(argv: list[str] | None = None) -> int:
         "final_detections": after_detections,
         "baseline_anchors": before_anchors,
         "final_anchors": after_anchors,
+        "position_tolerance": args.position_threshold,
     }
     if len(finals) == 1:
         result = analyze_pair(baseline, finals[0], **kwargs)
     else:
         result = analyze_sequence(baseline, finals, **kwargs)
     _write_outputs(result, finals[result.evidence.get("sequence", {}).get("selected_index", 0)], Path(args.output))
-    print(json.dumps({"level": result.level, "score": round(result.score, 4)}, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "disorder_score": round(result.disorder_score, 4) if result.disorder_score is not None else None,
+                "needs_review": result.needs_review,
+            },
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 

@@ -15,7 +15,7 @@ weights are needed.
 
 For a real release, add a licensed paired dataset with the following labels:
 
-- object state: returned, moved, missing, new, uncertain;
+- object action: stable, moved, missing, new, uncertain;
 - residual region polygons or masks;
 - capture quality and anchor reprojection error;
 - ordinal disorder label and annotator agreement.
@@ -41,6 +41,11 @@ masks remain residual regions. A detector that emits only boxes continues to wor
 through the bounded-box fallback. JSON mask fixtures must be rectangular, binary,
 and match the analyzed image dimensions; oversized or malformed masks are
 rejected before analysis.
+
+The default position tolerance is `0.1` normalized center displacement. Each
+object record includes its configured threshold and an explanation. A valid
+analysis reports `disorder_score` in `[0, 1]`; when a quality gate requires
+review, the score is `null` and `needs_review` is `true`.
 
 Optional dependencies are intentionally excluded from the CPU baseline:
 
